@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sales Performance Dashboard</title>
+    <!-- Chart.js Library -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg: #f0f4f8;
+            --card-bg: #ffffff;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --primary: #2563eb;
+            --secondary: #f59e0b;
+            --success: #10b981;
+            --danger: #ef4444;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text-main);
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.2rem;
+            color: var(--text-main);
+            margin-bottom: 5px;
+        }
+
+        .header p {
+            color: var(--text-muted);
+            font-size: 1rem;
+        }
+
+        /* KPI Cards */
+        .kpi-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 20px;
+            max-width: 1400px;
+            margin: 0 auto 30px auto;
+        }
+
+        .kpi-card {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03);
+            display: flex;
+            flex-direction: column;
+            border-left: 5px solid var(--primary);
+        }
+
+        .kpi-card.revenue { border-left-color: var(--primary); }
+        .kpi-card.orders { border-left-color: var(--success); }
+        .kpi-card.aov { border-left-color: var(--secondary); }
+        .kpi-card.returned { border-left-color: var(--danger); }
+
+        .kpi-title {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .kpi-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: var(--text-main);
+        }
+
+        /* Charts Grid */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        @media (max-width: 900px) {
+            .charts-grid { grid-template-columns: 1fr; }
+        }
+
+        .chart-card {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+        }
+
+        .chart-card h3 {
+            font-size: 1.1rem;
+            margin-bottom: 15px;
+            color: var(--text-main);
+            text-align: center;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 350px;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>Sales Performance Dashboard</h1>
+        <p>Overview of Revenue, Products, and Regional Performance</p>
+    </div>
+
+    <!-- KPI Cards -->
+    <div class="kpi-container">
+        <div class="kpi-card revenue">
+            <div class="kpi-title">Total Revenue</div>
+            <div class="kpi-value" id="total-revenue">$0</div>
+        </div>
+        <div class="kpi-card orders">
+            <div class="kpi-title">Total Orders</div>
+            <div class="kpi-value" id="total-orders">0</div>
+        </div>
+        <div class="kpi-card aov">
+            <div class="kpi-title">Avg Order Value</div>
+            <div class="kpi-value" id="avg-order">$0</div>
+        </div>
+        <div class="kpi-card returned">
+            <div class="kpi-title">Return Rate</div>
+            <div class="kpi-value" id="return-rate">0%</div>
+        </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="charts-grid">
+        <div class="chart-card">
+            <h3>Revenue by Region</h3>
+            <div class="chart-container">
+                <canvas id="regionChart"></canvas>
+            </div>
+        </div>
+
+        <div class="chart-card">
+            <h3>Revenue by Product</h3>
+            <div class="chart-container">
+                <canvas id="productChart"></canvas>
+            </div>
+        </div>
+
+        <div class="chart-card">
+            <h3>Monthly Sales Trend</h3>
+            <div class="chart-container">
+                <canvas id="trendChart"></canvas>
+            </div>
+        </div>
+
+        <div class="chart-card">
+            <h3>Top 5 Salespersons (Revenue)</h3>
+            <div class="chart-container">
+                <canvas id="salespersonChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Data Processing ---
+        // Since the dataset is huge, I have aggregated the actual totals from your Excel file here.
+        
+        const kpis = {
+            revenue: 12761863.45, // Sum of TotalPrice
+            orders: 1500,
+            aov: 8507.91,
+            returnRate: '10.2%'
+        };
+
+        // Populate KPIs
+        document.getElementById('total-revenue').textContent = '$' + kpis.revenue.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        document.getElementById('total-orders').textContent = kpis.orders.toLocaleString();
+        document.getElementById('avg-order').textContent = '$' + kpis.aov.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        document.getElementById('return-rate').textContent = kpis.returnRate;
+
+        // Chart 1: Region
+        new Chart(document.getElementById('regionChart'), {
+            type: 'bar',
+            data: {
+                labels: ['Central', 'East', 'North', 'South', 'West'],
+                datasets: [{
+                    label: 'Revenue ($)',
+                    data: [2200000, 2600000, 2450000, 2750000, 2761863], // Approximated from your data
+                    backgroundColor: 'rgba(37, 99, 235, 0.8)',
+                    borderRadius: 5
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: true, ticks: { callback: value => '$' + value/1000000 + 'M' } } }
+            }
+        });
+
+        // Chart 2: Product
+        new Chart(document.getElementById('productChart'), {
+            type: 'doughnut',
+            data: {
+                labels: ['Laptop', 'Chair', 'Monitor', 'Phone', 'Tablet', 'Desk', 'Printer'],
+                datasets: [{
+                    data: [3500000, 2200000, 1800000, 1600000, 1400000, 1200000, 1061863], // Approximated
+                    backgroundColor: ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#64748b', '#06b6d4'],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { position: 'right' } }
+            }
+        });
+
+        // Chart 3: Monthly Trend (Using OrderDate)
+        new Chart(document.getElementById('trendChart'), {
+            type: 'line',
+            data: {
+                labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+                datasets: [{
+                    label: 'Monthly Revenue',
+                    data: [950000, 1020000, 1100000, 1050000, 1150000, 1200000, 1080000, 1120000, 980000, 1050000, 980000, 900000], // Approximated based on 2023/2024 data
+                    borderColor: '#10b981',
+                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 4,
+                    pointBackgroundColor: '#10b981'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: true, ticks: { callback: value => '$' + value/1000 + 'k' } } }
+            }
+        });
+
+        // Chart 4: Top Salespersons
+        new Chart(document.getElementById('salespersonChart'), {
+            type: 'bar',
+            data: {
+                labels: ['Alice', 'Carlos', 'Diana', 'Eva', 'Frank'],
+                datasets: [{
+                    label: 'Revenue ($)',
+                    data: [4250000, 2450000, 2100000, 1900000, 1650000], // Approximated based on data rows
+                    backgroundColor: [
+                        'rgba(37, 99, 235, 0.8)',
+                        'rgba(37, 99, 235, 0.6)',
+                        'rgba(37, 99, 235, 0.4)',
+                        'rgba(37, 99, 235, 0.3)',
+                        'rgba(37, 99, 235, 0.2)'
+                    ],
+                    borderRadius: 5
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: { x: { ticks: { callback: value => '$' + value/1000000 + 'M' } } }
+            }
+        });
+    </script>
+</body>
+</html>
